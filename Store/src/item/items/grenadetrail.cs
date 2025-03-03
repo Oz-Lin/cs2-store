@@ -15,7 +15,7 @@ public static class Item_GrenadeTrail
     {
         Item.RegisterType("grenadetrail", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
 
-        if (Item.GetItemsByType("grenadetrail").Count > 0)
+        if (Item.IsAnyItemExistInType("grenadetrail"))
         {
             grenadetrailExists = true;
         }
@@ -83,7 +83,7 @@ public static class Item_GrenadeTrail
                 return;
             }
 
-            Dictionary<string, string>? itemdata = Item.GetItem(item.Type, item.UniqueId);
+            Dictionary<string, string>? itemdata = Item.GetItem(item.UniqueId);
 
             if (itemdata == null)
             {

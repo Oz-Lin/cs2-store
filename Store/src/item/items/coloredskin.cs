@@ -13,7 +13,7 @@ public static class Item_ColoredSkin
     {
         Item.RegisterType("coloredskin", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
 
-        if (Item.GetItemsByType("coloredskin").Count > 0)
+        if (Item.IsAnyItemExistInType("coloredskin"))
         {
             coloredskinExists = true;
         }
@@ -48,7 +48,7 @@ public static class Item_ColoredSkin
             return;
         }
 
-        Dictionary<string, string>? itemdata = Item.GetItem(playercoloredskin.Type, playercoloredskin.UniqueId);
+        Dictionary<string, string>? itemdata = Item.GetItem(playercoloredskin.UniqueId);
 
         if (itemdata == null)
         {

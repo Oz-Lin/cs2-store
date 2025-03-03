@@ -2,6 +2,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Tomlyn;
 using Tomlyn.Model;
@@ -10,19 +11,38 @@ namespace Store;
 
 public class Item_Config : BasePluginConfig
 {
-    [JsonPropertyName("Items")] public Dictionary<string, Dictionary<string, Dictionary<string, string>>> Items { get; set; } = [];
+    [JsonPropertyName("Items")] public JsonElement Items { get; set; } = new();
 }
 
 public static class Config_Config
 {
     public static Cfg Config { get; set; } = new Cfg();
 
+    private static readonly string ConfigPath;
+
+    static Config_Config()
+    {
+        string assemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? string.Empty;
+
+        ConfigPath = Path.Combine(Server.GameDirectory,
+            "csgo",
+            "addons",
+            "counterstrikesharp",
+            "configs",
+            "plugins",
+            assemblyName,
+            "config.toml"
+        );
+    }
+
     public static void Load()
     {
-        string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name ?? "";
-        string CfgPath = $"{Server.GameDirectory}/csgo/addons/counterstrikesharp/configs/plugins/{AssemblyName}";
+        if (!File.Exists(ConfigPath))
+        {
+            throw new FileNotFoundException($"Configuration file not found: {ConfigPath}");
+        }
 
-        LoadConfig($"{CfgPath}/config.toml");
+        LoadConfig(ConfigPath);
 
         Task.Run(async () =>
         {
@@ -97,6 +117,30 @@ public static class Config_Config
             resetDatabaseList.Add(item!.ToString()!);
         }
 
+        List<string> refreshPlayersCredits = [];
+        foreach (object? item in (TomlArray)commandsTable["RefreshPlayersCredits"])
+        {
+            refreshPlayersCredits.Add(item!.ToString()!);
+        }
+
+        List<string> hideTrailsList = [];
+        foreach (object? item in (TomlArray)commandsTable["HideTrails"])
+        {
+            hideTrailsList.Add(item!.ToString()!);
+        }
+
+        List<string> model0List = [];
+        foreach (object? item in (TomlArray)commandsTable["PlayerSkinsOff"])
+        {
+            model0List.Add(item!.ToString()!);
+        }
+
+        List<string> model1List = [];
+        foreach (object? item in (TomlArray)commandsTable["PlayerSkinsOn"])
+        {
+            model1List.Add(item!.ToString()!);
+        }
+
         Config_Commands config_commands = new()
         {
             Credits = [.. creditsList],
@@ -105,7 +149,11 @@ public static class Config_Config
             GiveCredits = [.. giveCreditsList],
             Gift = [.. giftList],
             ResetPlayer = [.. resetPlayerList],
-            ResetDatabase = [.. resetDatabaseList]
+            ResetDatabase = [.. resetDatabaseList],
+            RefreshPlayersCredits = [.. refreshPlayersCredits],
+            HideTrails = [.. hideTrailsList],
+            ModelOff = [.. model0List],
+            ModelOn = [.. model1List]
         };
 
         TomlTable defaultModelsTable = (TomlTable)model["DefaultModels"];
@@ -143,7 +191,7 @@ public static class Config_Config
         {
             EnableSelling = bool.Parse(menuTable["EnableSelling"].ToString()!),
             EnableConfirmMenu = bool.Parse(menuTable["EnableConfirmMenu"].ToString()!),
-            UseWASDMenu = bool.Parse(menuTable["UseWASDMenu"].ToString()!),
+            MenuType = menuTable["MenuType"].ToString()!,
             VipFlag = menuTable["VipFlag"].ToString()!,
             MenuPressSoundYes = menuTable["MenuPressSoundYes"].ToString()!,
             MenuPressSoundNo = menuTable["MenuPressSoundNo"].ToString()!
@@ -203,6 +251,10 @@ public static class Config_Config
         public string[] Gift { get; set; } = [];
         public string[] ResetPlayer { get; set; } = [];
         public string[] ResetDatabase { get; set; } = [];
+        public string[] RefreshPlayersCredits { get; set; } = [];
+        public string[] HideTrails { get; set; } = [];
+        public string[] ModelOff { get; set; } = [];
+        public string[] ModelOn { get; set; } = [];
     }
 
     public class Config_DefaultModels
@@ -225,7 +277,7 @@ public static class Config_Config
     {
         public bool EnableSelling { get; set; } = true;
         public bool EnableConfirmMenu { get; set; } = true;
-        public bool UseWASDMenu { get; set; } = true;
+        public string MenuType { get; set; } = "worldtext";
         public string VipFlag { get; set; } = "@css/root";
         public string MenuPressSoundYes { get; set; } = "";
         public string MenuPressSoundNo { get; set; } = "";

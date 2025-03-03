@@ -13,7 +13,7 @@ public static class Item_Tracer
     {
         Item.RegisterType("tracer", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
 
-        if (Item.GetItemsByType("tracer").Count > 0)
+        if (Item.IsAnyItemExistInType("tracer"))
         {
             Instance.RegisterEventHandler<EventBulletImpact>(OnBulletImpact);
         }
@@ -54,7 +54,7 @@ public static class Item_Tracer
             return HookResult.Continue;
         }
 
-        Dictionary<string, string>? itemdata = Item.GetItem(playertracer.Type, playertracer.UniqueId);
+        Dictionary<string, string>? itemdata = Item.GetItem(playertracer.UniqueId);
 
         if (itemdata == null)
         {

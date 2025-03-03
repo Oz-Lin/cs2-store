@@ -15,7 +15,7 @@ public static class Item_Smoke
     {
         Item.RegisterType("smoke", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
 
-        if (Item.GetItemsByType("smoke").Count > 0)
+        if (Item.IsAnyItemExistInType("smoke"))
         {
             smokeExists = true;
         }
@@ -77,7 +77,7 @@ public static class Item_Smoke
             }
             else
             {
-                Dictionary<string, string>? itemdata = Item.GetItem(item.Type, item.UniqueId);
+                Dictionary<string, string>? itemdata = Item.GetItem(item.UniqueId);
 
                 if (itemdata == null)
                 {

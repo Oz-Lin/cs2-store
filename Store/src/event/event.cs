@@ -7,7 +7,6 @@ using static CounterStrikeSharp.API.Core.Listeners;
 using static Store.Config_Config;
 using static Store.Store;
 using static StoreApi.Store;
-using Player = StoreApi.Store.Player;
 
 namespace Store;
 
@@ -20,6 +19,7 @@ public static class Event
         Instance.RemoveListener<OnTick>(OnTick);
         Instance.RemoveListener<OnEntityCreated>(OnEntityCreated);
         Instance.RemoveListener<OnClientAuthorized>(OnClientAuthorized);
+        Instance.RemoveListener<CheckTransmit>(OnCheckTransmit);
     }
 
     public static void Load()
@@ -28,14 +28,15 @@ public static class Event
         Instance.RegisterListener<OnServerPrecacheResources>(OnServerPrecacheResources);
         Instance.RegisterListener<OnTick>(OnTick);
         Instance.RegisterListener<OnEntityCreated>(OnEntityCreated);
-
+        Instance.RegisterListener<CheckTransmit>(OnCheckTransmit);
 
         Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
         Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         Instance.RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
+        Instance.RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
         Instance.RegisterListener<OnClientAuthorized>(OnClientAuthorized);
 
-        Instance.AddTimer(5.0F, () =>
+        Instance.AddTimer(5.0f, () =>
         {
             StartCreditsTimer();
         });
@@ -50,16 +51,11 @@ public static class Event
                 return;
             }
 
-            foreach (CCSPlayerController player in Utilities.GetPlayers())
+            List<CCSPlayerController> players = Utilities.GetPlayers();
+
+            foreach (CCSPlayerController player in players)
             {
-                if (player == null
-                    || !player.IsValid
-                    || player.PlayerPawn == null
-                    || !player.PlayerPawn.IsValid
-                    || player.PlayerPawn.Value == null
-                    || player.UserId == null
-                    || player.IsBot
-                    || player.IsHLTV)
+                if (player.IsBot)
                 {
                     continue;
                 }
@@ -96,16 +92,9 @@ public static class Event
             type.MapStart();
         });
 
-        Instance.AddTimer(5.0F, () =>
-        {
-            GameRules.GlobalGameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
-        }, TimerFlags.STOP_ON_MAPCHANGE);
-
         Database.ExecuteAsync("DELETE FROM store_items WHERE DateOfExpiration < NOW() AND DateOfExpiration > '0001-01-01 00:00:00';", null);
 
-        List<Store_Item> itemsToRemove = Instance.GlobalStorePlayerItems
-        .Where(item => item.DateOfExpiration < DateTime.Now && item.DateOfExpiration > DateTime.MinValue)
-        .ToList();
+        List<Store_Item> itemsToRemove = [.. Instance.GlobalStorePlayerItems.Where(item => item.DateOfExpiration < DateTime.Now && item.DateOfExpiration > DateTime.MinValue)];
 
         string store_equipmentTableName = Config.DatabaseConnection.DatabaseEquipTableName;
 
@@ -133,9 +122,7 @@ public static class Event
 
     public static void OnTick()
     {
-        Menu.OnTick();
-
-        List<CCSPlayerController> players = Utilities.GetPlayers().Where(p => p.PawnIsAlive).ToList();
+        List<CCSPlayerController> players = [.. Utilities.GetPlayers().Where(p => p.PawnIsAlive)];
 
         foreach (CCSPlayerController? player in players)
         {
@@ -189,7 +176,7 @@ public static class Event
 
         if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, value: out _))
         {
-            Player value = new();
+            PlayerTimer value = new();
             Instance.GlobalDictionaryPlayer.Add(player, value);
         }
 
@@ -209,7 +196,9 @@ public static class Event
             return HookResult.Continue;
         }
 
-        if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, out Player? value))
+        Item_Trail.HideTrailPlayerList.Remove(player);
+
+        if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, out PlayerTimer? value))
         {
             return HookResult.Continue;
         }
@@ -253,5 +242,69 @@ public static class Event
         }
 
         return HookResult.Continue;
+    }
+
+    public static HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo info)
+    {
+        CCSPlayerController? player = @event.Userid;
+
+        if (player == null)
+        {
+            return HookResult.Continue;
+        }
+
+        List<Store_Equipment> currentitems = Instance.GlobalStorePlayerEquipments.FindAll(p => p.SteamID == player.SteamID);
+
+        if (currentitems.Count > 0)
+        {
+            foreach (Store_Equipment currentiteam in currentitems)
+            {
+                Dictionary<string, string>? item = Item.GetItem(currentiteam.UniqueId);
+
+                if (item == null)
+                {
+                    continue;
+                }
+
+                if (item.TryGetValue("team", out string? steam) && int.TryParse(steam, out int team) && team >= 1 && team <= 3 && @event.Team != team)
+                {
+                    Item.Unequip(player, item, true);
+                }
+            }
+        }
+
+        return HookResult.Continue;
+    }
+
+    public static void OnCheckTransmit(CCheckTransmitInfoList infoList)
+    {
+        if (Instance.InspectList.Count == 0 && Item_Trail.TrailList.Count == 0)
+        {
+            return;
+        }
+
+        foreach ((CCheckTransmitInfo info, CCSPlayerController? player) in infoList)
+        {
+            if (player == null)
+            {
+                continue;
+            }
+
+            foreach ((CBaseModelEntity entity, CCSPlayerController owner) in Instance.InspectList)
+            {
+                if (owner.IsValid && player.SteamID != owner.SteamID)
+                {
+                    info.TransmitEntities.Remove(entity);
+                }
+            }
+
+            foreach ((CEntityInstance entity, CCSPlayerController owner) in Item_Trail.TrailList)
+            {
+                if (owner.IsValid && player.SteamID != owner.SteamID && Item_Trail.HideTrailPlayerList.Contains(player))
+                {
+                    info.TransmitEntities.Remove(entity);
+                }
+            }
+        }
     }
 }
