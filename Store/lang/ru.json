@@ -9,7 +9,7 @@
 	"You are alive": "{white}Вы можете купить это только когда вы мертвы.",
 	"No in pistol round": "{white}Вы не сможете купить этот предмет {green}{0} {white} в пистолетном раунде.",
 	"No gift yourself": "{white}Вы не можете подарить кредиты сами себе.",
-	"No type found": "{white}Тип не найден.",
+	"No type found": "{white}Тип не найден. {red}{0}",
 	"Gift timeout": "{white}Вам нужно подождать {green}{0} секунд {white}перед тем, как отправить подарок.",
 	"No purchase because team": "{white}Вы не можете купить этот предмет. Вы должны быть в команде {red}{0} {white}.",
 	"No equip because team": "{white}Вы не можете экипировать этот предмет. Вы должны быть в команде {red}{0} {white}.",
@@ -65,6 +65,7 @@
 	"css_model0": "{blue}{0}{white} включена форсировка моделей игроков по умолчанию.",
 	"css_model1": "{blue}{0}{white} выключил принудительное форсирование моделей игроков по умолчанию.",
 
-	"OperatorTestLang": "Оператор",
-	"AdminSkinsTestLang": "Скины администратора"
+	"*FreePlayerSkin*": "Бесплатный скин игрока",
+	"*CT*": "Скины CT",
+	"*Fernandez Frogman [CT]*": "Фернандес Лягушка [CT]"
 }

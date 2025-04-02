@@ -117,14 +117,14 @@ public class StoreAPI : IStoreApi
         return Item.GetItemsByType(type);
     }
 
-    public List<Store_Item> GetPlayerItems(CCSPlayerController player)
+    public List<Store_Item> GetPlayerItems(CCSPlayerController player, string? type)
     {
-        return Item.GetPlayerItems(player);
+        return Item.GetPlayerItems(player, type);
     }
 
-    public List<Store_Equipment> GetPlayerEquipments(CCSPlayerController player)
+    public List<Store_Equipment> GetPlayerEquipments(CCSPlayerController player, string? type)
     {
-        return Item.GetPlayerEquipments(player);
+        return Item.GetPlayerEquipments(player, type);
     }
 
     public void RegisterType(string Type, Action MapStart, Action<ResourceManifest> ServerPrecacheResources, Func<CCSPlayerController, Dictionary<string, string>, bool> Equip, Func<CCSPlayerController, Dictionary<string, string>, bool, bool> Unequip, bool Equipable, bool? Alive)

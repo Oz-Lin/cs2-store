@@ -9,23 +9,20 @@ public static class Item_Respawn
     {
         Item.RegisterType("respawn", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, false, false);
     }
-    public static void OnMapStart()
-    {
-    }
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
-    {
-    }
+
+    public static void OnMapStart() { }
+
+    public static void OnServerPrecacheResources(ResourceManifest manifest) { }
+
     public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
-        if (player.Team is not CsTeam.Terrorist && player.Team is not CsTeam.CounterTerrorist)
-        {
+        if (player.Team is not (CsTeam.Terrorist or CsTeam.CounterTerrorist))
             return false;
-        }
 
         player.Respawn();
-
         return true;
     }
+
     public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         return true;

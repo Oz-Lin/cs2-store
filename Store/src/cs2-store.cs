@@ -1,7 +1,7 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
-using CS2ScreenMenuAPI;
+using CS2MenuManager.API.Class;
 using StoreApi;
 using System.Text.Json;
 using static StoreApi.Store;
@@ -11,10 +11,10 @@ namespace Store;
 public class Store : BasePlugin, IPluginConfig<Item_Config>
 {
     public override string ModuleName => "Store";
-    public override string ModuleVersion => "1.8";
+    public override string ModuleVersion => "2.9";
     public override string ModuleAuthor => "schwarper";
 
-    public Item_Config Config { get; set; } = new Item_Config();
+    public Item_Config Config { get; set; } = new();
     public List<Store_Player> GlobalStorePlayers { get; set; } = [];
     public List<Store_Item> GlobalStorePlayerItems { get; set; } = [];
     public List<Store_Equipment> GlobalStorePlayerEquipments { get; set; } = [];
@@ -31,7 +31,6 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
     public override void Load(bool hotReload)
     {
         Capabilities.RegisterPluginCapability(IStoreApi.Capability, () => Api);
-
         Instance = this;
 
         Event.Load();
@@ -41,6 +40,7 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
         Item_Bunnyhop.OnPluginStart();
         Item_ColoredSkin.OnPluginStart();
         Item_CustomWeapon.OnPluginStart();
+        Item_Equipment.OnPluginStart();
         Item_Godmode.OnPluginStart();
         Item_Gravity.OnPluginStart();
         Item_GrenadeTrail.OnPluginStart();
@@ -52,17 +52,21 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
         Item_Smoke.OnPluginStart();
         Item_Sound.OnPluginStart();
         Item_Speed.OnPluginStart();
+        Item_Tags.OnPluginStart();
         Item_Tracer.OnPluginStart();
         Item_Trail.OnPluginStart();
         Item_Weapon.OnPluginStart();
-        Item_Equipment.OnPluginStart();
 
         if (hotReload)
         {
-            foreach (CCSPlayerController player in Utilities.GetPlayers())
+            List<CCSPlayerController> players = Utilities.GetPlayers();
+            foreach (CCSPlayerController player in players)
             {
+                if (player.IsBot)
+                    continue;
+
                 Database.LoadPlayer(player);
-                MenuAPI.CloseActiveMenu(player);
+                MenuManager.CloseActiveMenu(player);
             }
         }
     }
@@ -70,16 +74,21 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
     public override void Unload(bool hotReload)
     {
         Event.Unload();
+        Item_Tags.OnPluginEnd();
 
-        HashSet<string> ScreenMenuNames = ["worldtext", "screen", "screenmenu"];
-
-        if (ScreenMenuNames.Contains(Config_Config.Config.Menu.MenuType))
+        List<CCSPlayerController> players = Utilities.GetPlayers();
+        foreach (CCSPlayerController player in players)
         {
-            foreach (CCSPlayerController player in Utilities.GetPlayers())
-            {
-                MenuAPI.CloseActiveMenu(player);
-            }
+            if (player.IsBot)
+                continue;
+
+            MenuManager.CloseActiveMenu(player);
         }
+    }
+
+    public override void OnAllPluginsLoaded(bool hotReload)
+    {
+        Item_Tags.OnPluginsAllLoaded();
     }
 
     public void OnConfigParsed(Item_Config config)
@@ -87,23 +96,16 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
         Config_Config.Load();
 
         if (config.Items.ValueKind != JsonValueKind.Object)
-        {
             throw new JsonException();
-        }
 
-        Dictionary<string, Dictionary<string, string>> itemsDictionary = [];
-
-        foreach (JsonProperty category in config.Items.EnumerateObject())
-        {
-            ExtractItems(category.Value, itemsDictionary);
-        }
-
-        Items = itemsDictionary;
+        Items = ExtractItems(config.Items);
         Config = config;
     }
 
-    public static void ExtractItems(JsonElement category, Dictionary<string, Dictionary<string, string>> itemsDictionary)
+    public static Dictionary<string, Dictionary<string, string>> ExtractItems(JsonElement category)
     {
+        Dictionary<string, Dictionary<string, string>> itemsDictionary = [];
+
         foreach (JsonProperty subItem in category.EnumerateObject())
         {
             if (subItem.Value.ValueKind == JsonValueKind.Object)
@@ -111,20 +113,23 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
                 if (subItem.Value.TryGetProperty("uniqueid", out JsonElement uniqueIdElement))
                 {
                     string uniqueId = uniqueIdElement.GetString() ?? $"unknown_{subItem.Name}";
-                    Dictionary<string, string> itemData = [];
+                    Dictionary<string, string> itemData = subItem.Value.EnumerateObject()
+                        .ToDictionary(prop => prop.Name, prop => prop.Value.ToString());
 
-                    foreach (JsonProperty property in subItem.Value.EnumerateObject())
-                    {
-                        itemData[property.Name] = property.Value.ToString();
-                    }
-
+                    itemData["name"] = subItem.Name;
                     itemsDictionary[uniqueId] = itemData;
                 }
                 else
                 {
-                    ExtractItems(subItem.Value, itemsDictionary);
+                    Dictionary<string, Dictionary<string, string>> nestedItems = ExtractItems(subItem.Value);
+                    foreach (KeyValuePair<string, Dictionary<string, string>> nestedItem in nestedItems)
+                    {
+                        itemsDictionary[nestedItem.Key] = nestedItem.Value;
+                    }
                 }
             }
         }
+
+        return itemsDictionary;
     }
 }

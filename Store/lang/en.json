@@ -9,7 +9,7 @@
   "You are alive": "{white}You can buy it only when you are dead.",
   "No in pistol round": "{white}You cannot buy this item {green}{0} {white} in pistol round.",
   "No gift yourself": "{white}You cannot gift credits to yourself.",
-  "No type found": "{white}No type found.",
+  "No type found": "{white}No type found. {red}{0}",
   "Gift timeout": "{white}You need to wait {green}{0} seconds {white}to gift.",
   "No purchase because team": "{white}You cannot purchase this item. You need to be in {red}{0} {white}team.",
   "No equip because team": "{white}You cannot equip this item. You need to be in {red}{0} {white}team.",
@@ -65,6 +65,7 @@
   "css_model0": "{blue}{0}{white} turned on the default forcing of player models.",
   "css_model1": "{blue}{0}{white} turned off the default forcing of player models.",
 
-  "OperatorTestLang": "Operator",
-  "AdminSkinsTestLang": "Admin Skins"
+  "*FreePlayerSkin*": "Free Player Skin",
+  "*CT*": "CT Skins",
+  "*Fernandez Frogman [CT]*": "*Fernandez Frogman [CT]*"
 }
