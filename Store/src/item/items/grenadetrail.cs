@@ -1,47 +1,55 @@
+using System.Globalization;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
+using Store.Extension;
 using static Store.Store;
 using static StoreApi.Store;
 
 namespace Store;
 
-public static class Item_GrenadeTrail
+[StoreItemType("grenadetrail")]
+public class ItemGrenadeTrail : IItemModule
 {
-    public static Dictionary<CBaseCSGrenadeProjectile, CParticleSystem> GlobalGrenadeTrail { get; set; } = [];
-    private static bool _grenadeTrailExists = false;
+    public bool Equipable => true;
+    public bool? RequiresAlive => null;
 
-    public static void OnPluginStart()
+    private static Dictionary<CBaseCSGrenadeProjectile, CBaseEntity> GlobalGrenadeTrail { get; set; } = [];
+    private static bool _grenadeTrailExists;
+
+    public void OnPluginStart()
     {
-        Item.RegisterType("grenadetrail", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
         _grenadeTrailExists = Item.IsAnyItemExistInType("grenadetrail");
     }
 
-    public static void OnMapStart() { }
-
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
+    public void OnMapStart()
     {
-        List<KeyValuePair<string, Dictionary<string, string>>> items = Item.GetItemsByType("grenadetrail");
+        GlobalGrenadeTrail.Clear();
+    }
 
-        foreach (KeyValuePair<string, Dictionary<string, string>> item in items)
+    public void OnServerPrecacheResources(ResourceManifest manifest)
+    {
+        var items = Item.GetItemsByType("grenadetrail");
+
+        foreach (var item in items)
         {
             manifest.AddResource(item.Value["model"]);
         }
     }
 
-    public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
         return true;
     }
 
-    public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         return true;
     }
 
     public static void OnEntityCreated(CEntityInstance entity)
     {
-        if (!_grenadeTrailExists || entity.DesignerName != "hegrenade_projectile") return;
+        if (!_grenadeTrailExists || !entity.DesignerName.EndsWith("_projectile")) return;
 
         CBaseCSGrenadeProjectile grenade = new(entity.Handle);
         if (grenade.Handle == IntPtr.Zero) return;
@@ -51,46 +59,25 @@ public static class Item_GrenadeTrail
             CBasePlayerController? player = grenade.Thrower.Value?.Controller.Value;
             if (player == null) return;
 
-            Store_Equipment? item = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamID == player.SteamID && p.Type == "grenadetrail");
+            StoreEquipment? item = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamId == player.SteamID && p.Type == "grenadetrail");
             if (item == null) return;
-
-            CParticleSystem? particle = Utilities.CreateEntityByName<CParticleSystem>("info_particle_system");
-            if (particle == null || !particle.IsValid) return;
-
-            Dictionary<string, string>? itemData = Item.GetItem(item.UniqueId);
+            
+            var itemData = Item.GetItem(item.UniqueId);
             if (itemData == null) return;
-
+            
             string acceptInputValue = itemData.TryGetValue("acceptInputValue", out string? value) && !string.IsNullOrEmpty(value) ? value : "Start";
 
-            particle.EffectName = itemData["model"];
-            particle.DispatchSpawn();
-            particle.Teleport(grenade.AbsOrigin!, new QAngle(), new Vector());
-            particle.AcceptInput(acceptInputValue);
-
-            GlobalGrenadeTrail[grenade] = particle;
-        });
-    }
-
-    public static void OnTick()
-    {
-        if (!_grenadeTrailExists) return;
-
-        foreach (KeyValuePair<CBaseCSGrenadeProjectile, CParticleSystem> kv in GlobalGrenadeTrail.ToList())
-        {
-            CBaseCSGrenadeProjectile grenade = kv.Key;
-            CParticleSystem particle = kv.Value;
-
-            if (!grenade.IsValid || Vec.CalculateDistance(grenade.AbsOrigin!, grenade.ExplodeEffectOrigin) < 5)
+            CBaseEntity? trail = itemData["entityType"] switch
             {
-                if (particle.IsValid)
-                {
-                    particle.Remove();
-                }
-                GlobalGrenadeTrail.Remove(grenade);
-                continue;
-            }
+                "particle" => grenade.CreateFollowingParticle(itemData["model"], acceptInputValue),
+                "beam" => grenade.CreateFollowingBeam(float.Parse(itemData["width"], CultureInfo.InvariantCulture), itemData["color"], null),
+                _ => throw new NotImplementedException()
+            };
 
-            particle.Teleport(grenade.AbsOrigin!, grenade.AbsRotation!, grenade.AbsVelocity);
-        }
+            if (trail == null)
+                return;
+
+            GlobalGrenadeTrail[grenade] = trail;
+        });
     }
 }

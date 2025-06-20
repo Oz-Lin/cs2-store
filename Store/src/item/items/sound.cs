@@ -1,34 +1,36 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
+using static StoreApi.Store;
 
 namespace Store;
 
-public static class Item_Sound
+[StoreItemType("sound")]
+public class ItemSound : IItemModule
 {
-    public static void OnPluginStart()
-    {
-        Item.RegisterType("sound", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, false, null);
-    }
+    public bool Equipable => false;
+    public bool? RequiresAlive => null;
 
-    public static void OnMapStart() { }
+    public void OnPluginStart() { }
 
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
+    public void OnMapStart() { }
+
+    public void OnServerPrecacheResources(ResourceManifest manifest)
     {
         Item.GetItemsByType("sound").ForEach(item => manifest.AddResource(item.Value["sound"]));
     }
 
-    public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
         Utilities.GetPlayers()
-            .Where(target => target != null && target.IsValid)
+            .Where(target => target.IsValid)
             .ToList()
             .ForEach(target => target.ExecuteClientCommand($"play {item["sound"]}"));
 
         return true;
     }
 
-    public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         return true;
     }

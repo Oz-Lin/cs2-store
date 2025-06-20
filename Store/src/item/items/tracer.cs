@@ -1,35 +1,37 @@
-using CounterStrikeSharp.API;
+using System.Globalization;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
-using System.Globalization;
+using Store.Extension;
 using static Store.Store;
 using static StoreApi.Store;
 
 namespace Store;
 
-public static class Item_Tracer
+[StoreItemType("tracer")]
+public class ItemTracer : IItemModule
 {
-    public static void OnPluginStart()
-    {
-        Item.RegisterType("tracer", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
+    public bool Equipable => true;
+    public bool? RequiresAlive => null;
 
+    public void OnPluginStart()
+    {
         if (Item.IsAnyItemExistInType("tracer"))
             Instance.RegisterEventHandler<EventBulletImpact>(OnBulletImpact);
     }
 
-    public static void OnMapStart() { }
+    public void OnMapStart() { }
 
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
+    public void OnServerPrecacheResources(ResourceManifest manifest)
     {
         Item.GetItemsByType("tracer").ForEach(item => manifest.AddResource(item.Value["model"]));
     }
 
-    public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
         return true;
     }
 
-    public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         return true;
     }
@@ -40,30 +42,17 @@ public static class Item_Tracer
         if (player == null || !player.IsValid)
             return HookResult.Continue;
 
-        Store_Equipment? playertracer = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamID == player.SteamID && p.Type == "tracer");
+        StoreEquipment? playertracer = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamId == player.SteamID && p.Type == "tracer");
         if (playertracer == null)
             return HookResult.Continue;
 
-        Dictionary<string, string>? itemdata = Item.GetItem(playertracer.UniqueId);
+        var itemdata = Item.GetItem(playertracer.UniqueId);
         if (itemdata == null)
             return HookResult.Continue;
 
-        CBeam? entity = Utilities.CreateEntityByName<CBeam>("beam");
-        if (entity == null || !entity.IsValid)
+        CBeam? entity = player.CreateFollowingBeam(int.Parse(itemdata["width"], CultureInfo.InvariantCulture), itemdata["color"], new Vector(@event.X, @event.Y, @event.Z), true);
+        if (entity == null)
             return HookResult.Continue;
-
-        string acceptinputvalue = itemdata.GetValueOrDefault("acceptInputValue", "Start");
-        entity.SetModel(itemdata["model"]);
-        entity.DispatchSpawn();
-        entity.AcceptInput(acceptinputvalue);
-
-        Vector position = Vec.GetEyePosition(player);
-        entity.Teleport(position, new QAngle(), new Vector());
-
-        entity.EndPos.X = @event.X;
-        entity.EndPos.Y = @event.Y;
-        entity.EndPos.Z = @event.Z;
-        Utilities.SetStateChanged(entity, "CBeam", "m_vecEndPos");
 
         float lifetime = itemdata.TryGetValue("lifetime", out string? value) && float.TryParse(value, CultureInfo.InvariantCulture, out float lt) ? lt : 0.3f;
 

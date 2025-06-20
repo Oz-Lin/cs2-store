@@ -1,75 +1,160 @@
 # cs2-store
+A store plugin designed to enhance your gameplay by providing a dynamic credit system that allows players to purchase essential items directly from the store.  
 
-Store plugin, designed to enhance your gameplay by providing a dynamic credit system that allows you to purchase essential items directly from the store.
+# 🔔 Notice
+Some companies modify this plugin, remove the original author name, and claim it as their own. This is unethical and against open-source principles.
+Please use the official version here and contribute via pull requests if you wish to help improve it.
 
-If you want to donate or need a help about plugin, you can contact me in discord private/server
+- [Installation](https://github.com/schwarper/cs2-store?tab=readme-ov-file#-installation)
+- [Installation (Video)](https://github.com/schwarper/cs2-store?tab=readme-ov-file#-installation-video)
+- [Modules](https://github.com/schwarper/cs2-store?tab=readme-ov-file#-modules)
+- [Api Example](https://github.com/schwarper/cs2-store?tab=readme-ov-file#%EF%B8%8F-api-example)
+- [Menu Style](https://github.com/schwarper/cs2-store?tab=readme-ov-file#-menu-style)
+---
 
-Discord nickname: schwarper
+## 📦 Installation  
 
-Discord link : [Discord server](https://discord.gg/4zQfUzjk36)
+### 1) Prerequisites  
+- This plugin requires the following dependency:  
+  ➡ **[CS2MenuManager](https://github.com/schwarper/CS2MenuManager)**  
+  ```Make sure to install this dependency before proceeding.```  
 
-# Installation
+### 2) Download the Plugin  
+- Download the latest release from:  
+  **[https://github.com/schwarper/cs2-store/releases](https://github.com/schwarper/cs2-store/releases)**  
 
-1. Download the plugin:
-* Download the plugin from https://github.com/schwarper/cs2-store/releases.
-2. Install the plugin files:
-* Place the contents of the downloaded zip file in the `addons/counterstrikesharp` folder.
-3. Configure the plugin settings:
-* For the first installation: You will need to change the names of the files in the `addons/counterstrikesharp/configs/plugins/cs2-store/` folder. They should be called 'cs2-store.json' and 'config.toml'. In the json file you need to set the item setting. In the tomlyn file you need to set the plugin settings. You will also need to set the database settings in this file.
-4. Restart or install the plugin:
-* Restart your server or reload the plugin for the settings to take effect.
-* Send the command `css_plugins load cs2-store` from the server (Load)
-* Send the command `css_plugins reload Store` from the server (Reload)
+### 3) Configure Plugin Settings  
+After installation:  
+- Rename the configuration files in:  
+  `addons/counterstrikesharp/configs/plugins/cs2-store/`  
+  to the following:  
+  - `cs2-store.json` → Define available store items here.  
+  - `config.toml` → Configure plugin and database settings.  
 
-# Approved modules
-[Crash by NaathySz](https://github.com/NaathySz/Store-Crash)
+### 4) Load/Reload the Plugin  
+To activate:  
+- Restart your server  
+**OR**  
+- Run these commands in the server console:  
+  ```css_plugins load cs2-store``` (Load the plugin)  
+  ```css_plugins reload Store``` (Reload after changes)  
 
-[Quiz by NaathySz](https://github.com/NaathySz/Store-Quiz)
+#### 🎥 Installation Video  
+Watch the step-by-step guide:  
+[Installation Guide](https://files.catbox.moe/uzadjw.mp4)
 
-[SlotMachine by NaathySz](https://github.com/NaathySz/Store-SlotMachine)
 
-[HiLo by NaathySz](https://github.com/NaathySz/Store-HiLo)
+---
 
-[NameBonus by NaathySz](https://github.com/NaathySz/Store-NameBonus)
+## 🎲 Modules
+You can find the offical modules:  
+[CS2 Store Modules](https://github.com/schwarper/cs2-store-modules)
 
-[CoinFlip by NaathySz](https://github.com/NaathySz/Store-CoinFlip)
+## 🕸️ Api Example
+- Give player an item or credits
+```csharp
+public class TestModule : BasePlugin
+{
+    public override string ModuleName => "Test Module";
+    public override string ModuleVersion => "0.0.1";
 
-[ReferralCodes by NaathySz](https://github.com/NaathySz/Store-ReferralCodes)
+    private IStoreApi? _storeApi;
 
-[Daily by NaathySz](https://github.com/NaathySz/Store-Daily)
+    public override void OnAllPluginsLoaded(bool hotReload)
+    {
+        _storeApi = IStoreApi.Capability.Get();
+    }
 
-[Salary by NaathySz](https://github.com/NaathySz/Store-Salary)
+    public void GivePlayerCredits(CCSPlayerController player, int credits)
+    {
+        _storeApi?.GivePlayerCredits(player, credits);
+    }
 
-[Voucher by NaathySz](https://github.com/NaathySz/Store-Voucher)
+    public bool GivePlayerItem(CCSPlayerController player, string uniqueId)
+    {
+        // Checks if item is exist.
+        if (_storeApi?.GetItem(uniqueId) is not { } item)
+            return false;
 
-[TopList by NaathySz](https://github.com/NaathySz/Store-TopList)
+        // Checks if player has already this item
+        if (_storeApi.Item_PlayerHas(player, item["type"], uniqueId, ignoreVip: false))
+            return false;
 
-[Vip by NaathySz](https://github.com/NaathySz/Store-Vip)
+        // Give item
+        _storeApi.Item_Give(player, item);
+        return true;
+    }
+}
+```
 
-[DuelDice by NaathySz](https://github.com/NaathySz/Store-DuelDice)
+- Add module
+```csharp
+//Module type
+[StoreItemType("test")]
+//We use IItemModule
+public class TestModule : BasePlugin, IItemModule
+{
+    public override string ModuleName => "Test Module";
+    public override string ModuleVersion => "0.0.1";
 
-[Math by NaathySz](https://github.com/NaathySz/Store-MathQuiz)
+    // You can also use this way.
+    // However, we won't use _storeApi anywhere for this example.
+    //private IStoreApi? _storeApi;
 
-[Cases by NaathySz](https://github.com/NaathySz/Store-Cases)
+    public override void OnAllPluginsLoaded(bool hotReload)
+    {
+        // You need to use assembly here.
+        IStoreApi.Capability.Get()?.RegisterModules(Assembly.GetExecutingAssembly());
+        //_storeApi = IStoreApi.Capability.Get();
+        //_storeApi?.RegisterModules(Test.Assembly);
+    }
 
-# Images
+    // ============================
+    // IItemModule dependencies
+    // ============================
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/d0edc64e-6475-4d04-b5c7-0ea03686d1e6)
+    // Sets if item is equipable
+    public bool Equipable => false;
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/a5643eb8-305e-446b-8600-af87976fcbdf)
+    // Sets if player has to be alive/dead to purchase
+    // True => alive only
+    // False => dead only
+    // Null => everyone can purchase
+    public bool? RequiresAlive => null;
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/0893a4f1-333f-4c3e-b126-a8e1f0ec6380)
+    // You can use this execute as OnAllPluginsLoaded.
+    public void OnPluginStart() { Console.WriteLine($"Test OnPluginStart"); }
+    public void OnMapStart() { }
+    public void OnServerPrecacheResources(ResourceManifest manifest) { }
+    
+    // If you set false, they cannot equip / unequip, if true, they can.
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    {
+        return true;
+    }
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    {
+        return true;
+    }
+}
+```
+## 🔖 Menu Style
+**CenterHtmlMenu**
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/43652f9f-1ce2-423e-afe4-e13d98ee167a)
+![image](https://files.catbox.moe/gz8x5e.png)
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/212c3139-d2c9-4afe-8c0d-8680d7b5e361)
+**ChatMenu**
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/66b54a97-1b5b-46e2-b838-9a998d65781a)
+![image](https://files.catbox.moe/85ix04.png)
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/0db6f827-e2c2-4c7c-9440-9ae97f4225e2)
+**ConsoleMenu**
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/02a48527-6146-46ea-ae34-83deb8e36ca7)
+![image](https://files.catbox.moe/m47qri.png)
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/e6c494db-64d0-44e6-b115-56499d95b912)
+**ScreenMenu**
 
-![image](https://github.com/schwarper/cs2-store/assets/75811921/4602f571-b00d-4e51-a740-a66e90216dfa)
+![image](https://files.catbox.moe/b5ulzj.png)
+
+**WasdMenu**
+
+![image](https://files.catbox.moe/kogxzp.png)

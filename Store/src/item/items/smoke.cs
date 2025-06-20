@@ -1,39 +1,42 @@
+using System.Globalization;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
-using System.Globalization;
 using static Store.Store;
 using static StoreApi.Store;
 
 namespace Store;
 
-public static class Item_Smoke
+[StoreItemType("smoke")]
+public class ItemSmoke : IItemModule
 {
-    private static bool smokeExists = false;
+    private static bool _smokeExists;
 
-    public static void OnPluginStart()
+    public bool Equipable => true;
+    public bool? RequiresAlive => null;
+
+    public void OnPluginStart()
     {
-        Item.RegisterType("smoke", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
-        smokeExists = Item.IsAnyItemExistInType("smoke");
+        _smokeExists = Item.IsAnyItemExistInType("smoke");
     }
 
-    public static void OnMapStart() { }
+    public void OnMapStart() { }
 
-    public static void OnServerPrecacheResources(ResourceManifest manifest) { }
+    public void OnServerPrecacheResources(ResourceManifest manifest) { }
 
-    public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
         return true;
     }
 
-    public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         return true;
     }
 
     public static void OnEntityCreated(CEntityInstance entity)
     {
-        if (!smokeExists || entity.DesignerName != "smokegrenade_projectile")
+        if (!_smokeExists || entity.DesignerName != "smokegrenade_projectile")
             return;
 
         CSmokeGrenadeProjectile grenade = new(entity.Handle);
@@ -46,7 +49,7 @@ public static class Item_Smoke
             if (player == null)
                 return;
 
-            Store_Equipment? item = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamID == player.SteamID && p.Type == "smoke");
+            StoreEquipment? item = Instance.GlobalStorePlayerEquipments.FirstOrDefault(p => p.SteamId == player.SteamID && p.Type == "smoke");
             if (item == null)
                 return;
 
@@ -58,7 +61,7 @@ public static class Item_Smoke
             }
             else
             {
-                Dictionary<string, string>? itemdata = Item.GetItem(item.UniqueId);
+                var itemdata = Item.GetItem(item.UniqueId);
                 if (itemdata == null)
                     return;
 

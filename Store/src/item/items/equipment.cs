@@ -2,83 +2,80 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using static Store.Store;
+using static StoreApi.Store;
 
 namespace Store;
 
-public static class Item_Equipment
+[StoreItemType("equipment")]
+public class ItemEquipment : IItemModule
 {
+    public bool Equipable => true;
+    public bool? RequiresAlive => null;
+
     private static readonly Dictionary<CCSPlayerController, Dictionary<int, CDynamicProp>> PlayerEquipmentEntities = [];
 
-    public static void OnPluginStart()
+    public void OnPluginStart()
     {
-        Item.RegisterType("equipment", OnMapStart, OnServerPrecacheResources, OnEquip, OnUnequip, true, null);
-
-        if (Item.IsAnyItemExistInType("equipment"))
-        {
-            Instance.RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
-            Instance.RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
-            Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
-        }
+        if (!Item.IsAnyItemExistInType("equipment")) return;
+        
+        Instance.RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
+        Instance.RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
+        Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
     }
 
-    public static void OnMapStart()
+    public void OnMapStart()
     {
         PlayerEquipmentEntities.Clear();
     }
 
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
+    public void OnServerPrecacheResources(ResourceManifest manifest)
     {
-        List<KeyValuePair<string, Dictionary<string, string>>> items = Item.GetItemsByType("equipment");
+        var items = Item.GetItemsByType("equipment");
 
-        foreach (KeyValuePair<string, Dictionary<string, string>> item in items)
+        foreach (var item in items)
             manifest.AddResource(item.Value["model"]);
     }
 
-    public static bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
+    public bool OnEquip(CCSPlayerController player, Dictionary<string, string> item)
     {
         if (!item.TryGetValue("slot", out string? slotStr) || !int.TryParse(slotStr, out int slot) || slot < 0)
             return false;
 
         EquipModel(player, item["model"], slot);
-
         return true;
     }
 
-    public static bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
+    public bool OnUnequip(CCSPlayerController player, Dictionary<string, string> item, bool update)
     {
         if (!item.TryGetValue("slot", out string? slotStr) || !int.TryParse(slotStr, out int slot))
             return false;
 
         UnEquipModel(player, slot);
-
         return true;
     }
 
-    public static void EquipModel(CCSPlayerController player, string model, int slot)
+    private static void EquipModel(CCSPlayerController player, string model, int slot)
     {
         UnEquipModel(player, slot);
 
         Server.NextFrame(() =>
         {
             CDynamicProp? entity = CreateItem(player, model);
-            if (entity != null && entity.IsValid)
-            {
-                if (!PlayerEquipmentEntities.ContainsKey(player))
-                    PlayerEquipmentEntities[player] = [];
+            if (entity == null || !entity.IsValid) return;
+            
+            if (!PlayerEquipmentEntities.ContainsKey(player))
+                PlayerEquipmentEntities[player] = [];
 
-                PlayerEquipmentEntities[player][slot] = entity;
-            }
+            PlayerEquipmentEntities[player][slot] = entity;
         });
     }
 
-    public static void UnEquipModel(CCSPlayerController player, int slot)
+    private static void UnEquipModel(CCSPlayerController player, int slot)
     {
-        if (!PlayerEquipmentEntities.TryGetValue(player, out Dictionary<int, CDynamicProp>? value) || !value.ContainsKey(slot))
+        if (!PlayerEquipmentEntities.TryGetValue(player, out var value) || !value.TryGetValue(slot, out CDynamicProp? entity))
             return;
-
-        CDynamicProp? entity = value[slot];
-
-        if (entity != null && entity.IsValid)
+        
+        if (entity.IsValid)
             entity.Remove();
 
         value.Remove(slot);
@@ -87,7 +84,7 @@ public static class Item_Equipment
             PlayerEquipmentEntities.Remove(player);
     }
 
-    public static CDynamicProp? CreateItem(CCSPlayerController player, string model)
+    private static CDynamicProp? CreateItem(CCSPlayerController player, string model)
     {
         CCSPlayerPawn? pawn = player.PlayerPawn.Value;
         if (pawn == null) return null;
@@ -105,59 +102,56 @@ public static class Item_Equipment
         return entity;
     }
 
-    public static HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
+    private static HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
     {
         CCSPlayerController? player = @event.Userid;
         if (player == null) return HookResult.Continue;
 
-        List<StoreApi.Store.Store_Equipment> equippedItems = [.. Instance.GlobalStorePlayerEquipments.Where(x => x.SteamID == player.SteamID && x.Type == "equipment")];
+        List<StoreEquipment> equippedItems = [.. Instance.GlobalStorePlayerEquipments.Where(x => x.SteamId == player.SteamID && x.Type == "equipment")];
 
-        if (PlayerEquipmentEntities.TryGetValue(player, out Dictionary<int, CDynamicProp>? value))
+        if (PlayerEquipmentEntities.TryGetValue(player, out var value))
         {
-            List<int> slotsToRemove = [.. value.Where(kv => !equippedItems.Any(item => item.Slot == kv.Key)).Select(kv => kv.Key)];
+            List<int> slotsToRemove = [.. value.Where(kv => equippedItems.All(item => item.Slot != kv.Key)).Select(kv => kv.Key)];
 
             foreach (int slot in slotsToRemove)
                 UnEquipModel(player, slot);
         }
 
-        foreach (StoreApi.Store.Store_Equipment? item in equippedItems)
+        foreach (StoreEquipment? item in equippedItems)
         {
-            if (Item.GetItem(item.UniqueId) is Dictionary<string, string> itemData &&
-                itemData.TryGetValue("model", out string? model) &&
-                itemData.TryGetValue("slot", out string? slotStr) && int.TryParse(slotStr, out int slot))
-            {
-                if (PlayerEquipmentEntities.TryGetValue(player, out Dictionary<int, CDynamicProp>? equipment) &&
-                    equipment.TryGetValue(slot, out CDynamicProp? entity) && entity != null && entity.IsValid)
-                    continue;
+            if (Item.GetItem(item.UniqueId) is not { } itemData ||
+                !itemData.TryGetValue("model", out string? model) ||
+                !itemData.TryGetValue("slot", out string? slotStr) || !int.TryParse(slotStr, out int slot)) continue;
+            
+            if (PlayerEquipmentEntities.TryGetValue(player, out var equipment) &&
+                equipment.TryGetValue(slot, out CDynamicProp? entity) && entity.IsValid)
+                continue;
 
-                EquipModel(player, model, slot);
-            }
+            EquipModel(player, model, slot);
         }
 
         return HookResult.Continue;
     }
 
-    public static HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo info)
+    private static HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo info)
     {
         CleanUpModels(@event.Userid);
         return HookResult.Continue;
     }
 
-    public static HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+    private static HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
         CleanUpModels(@event.Userid);
         return HookResult.Continue;
     }
 
-    public static void CleanUpModels(CCSPlayerController? player)
+    private static void CleanUpModels(CCSPlayerController? player)
     {
-        if (player != null && PlayerEquipmentEntities.TryGetValue(player, out Dictionary<int, CDynamicProp>? value))
-        {
-            foreach (CDynamicProp entity in value.Values)
-                if (entity != null && entity.IsValid)
-                    entity.Remove();
+        if (player == null || !PlayerEquipmentEntities.TryGetValue(player, out var value)) return;
+        
+        foreach (CDynamicProp entity in value.Values.Where(entity => entity.IsValid))
+            entity.Remove();
 
-            PlayerEquipmentEntities.Remove(player);
-        }
+        PlayerEquipmentEntities.Remove(player);
     }
 }

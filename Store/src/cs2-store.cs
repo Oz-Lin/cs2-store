@@ -1,31 +1,32 @@
-﻿using CounterStrikeSharp.API;
+﻿using System.Reflection;
+using System.Text.Json;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using CS2MenuManager.API.Class;
+using Store.Extension;
 using StoreApi;
-using System.Text.Json;
 using static StoreApi.Store;
 
 namespace Store;
 
-public class Store : BasePlugin, IPluginConfig<Item_Config>
+public class Store : BasePlugin, IPluginConfig<ItemConfig>
 {
     public override string ModuleName => "Store";
-    public override string ModuleVersion => "2.9";
+    public override string ModuleVersion => "v17";
     public override string ModuleAuthor => "schwarper";
 
-    public Item_Config Config { get; set; } = new();
-    public List<Store_Player> GlobalStorePlayers { get; set; } = [];
-    public List<Store_Item> GlobalStorePlayerItems { get; set; } = [];
-    public List<Store_Equipment> GlobalStorePlayerEquipments { get; set; } = [];
-    public List<Store_Item_Types> GlobalStoreItemTypes { get; set; } = [];
+    public ItemConfig Config { get; set; } = new();
+    public List<StorePlayer> GlobalStorePlayers { get; set; } = [];
+    public List<StoreItem> GlobalStorePlayerItems { get; set; } = [];
+    public List<StoreEquipment> GlobalStorePlayerEquipments { get; set; } = [];
     public Dictionary<CCSPlayerController, PlayerTimer> GlobalDictionaryPlayer { get; set; } = [];
-    public int GlobalTickrate { get; set; } = 0;
-    public static Store Instance { get; set; } = new();
+    public int GlobalTickrate { get; set; }
+    public static Store Instance { get; private set; } = new();
     public Random Random { get; set; } = new();
     public Dictionary<CCSPlayerController, float> GlobalGiftTimeout { get; set; } = [];
-    public static StoreAPI Api { get; set; } = new();
-    public Dictionary<string, Dictionary<string, string>> Items { get; set; } = [];
+    public static StoreApi Api { get; set; } = new();
+    public Dictionary<string, Dictionary<string, string>> Items { get; private set; } = [];
     public Dictionary<CBaseModelEntity, CCSPlayerController> InspectList { get; set; } = [];
 
     public override void Load(bool hotReload)
@@ -36,30 +37,9 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
         Event.Load();
         Command.Load();
 
-        Item_Armor.OnPluginStart();
-        Item_Bunnyhop.OnPluginStart();
-        Item_ColoredSkin.OnPluginStart();
-        Item_CustomWeapon.OnPluginStart();
-        Item_Equipment.OnPluginStart();
-        Item_Godmode.OnPluginStart();
-        Item_Gravity.OnPluginStart();
-        Item_GrenadeTrail.OnPluginStart();
-        Item_Health.OnPluginStart();
-        Item_Link.OnPluginStart();
-        Item_Open.OnPluginStart();
-        Item_PlayerSkin.OnPluginStart();
-        Item_Respawn.OnPluginStart();
-        Item_Smoke.OnPluginStart();
-        Item_Sound.OnPluginStart();
-        Item_Speed.OnPluginStart();
-        Item_Tags.OnPluginStart();
-        Item_Tracer.OnPluginStart();
-        Item_Trail.OnPluginStart();
-        Item_Weapon.OnPluginStart();
-
         if (hotReload)
         {
-            List<CCSPlayerController> players = Utilities.GetPlayers();
+            var players = Utilities.GetPlayers();
             foreach (CCSPlayerController player in players)
             {
                 if (player.IsBot)
@@ -74,9 +54,9 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
     public override void Unload(bool hotReload)
     {
         Event.Unload();
-        Item_Tags.OnPluginEnd();
+        ItemTags.OnPluginEnd();
 
-        List<CCSPlayerController> players = Utilities.GetPlayers();
+        var players = Utilities.GetPlayers();
         foreach (CCSPlayerController player in players)
         {
             if (player.IsBot)
@@ -88,48 +68,17 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
 
     public override void OnAllPluginsLoaded(bool hotReload)
     {
-        Item_Tags.OnPluginsAllLoaded();
+        ItemModuleManager.RegisterModules(Assembly.GetExecutingAssembly());
     }
 
-    public void OnConfigParsed(Item_Config config)
+    public void OnConfigParsed(ItemConfig config)
     {
-        Config_Config.Load();
+        ConfigConfig.Load();
 
-        if (config.Items.ValueKind != JsonValueKind.Object)
+        if (!config.Items.ValueKind.IsValueKindObject())
             throw new JsonException();
 
-        Items = ExtractItems(config.Items);
+        Items = config.Items.ExtractItems();
         Config = config;
-    }
-
-    public static Dictionary<string, Dictionary<string, string>> ExtractItems(JsonElement category)
-    {
-        Dictionary<string, Dictionary<string, string>> itemsDictionary = [];
-
-        foreach (JsonProperty subItem in category.EnumerateObject())
-        {
-            if (subItem.Value.ValueKind == JsonValueKind.Object)
-            {
-                if (subItem.Value.TryGetProperty("uniqueid", out JsonElement uniqueIdElement))
-                {
-                    string uniqueId = uniqueIdElement.GetString() ?? $"unknown_{subItem.Name}";
-                    Dictionary<string, string> itemData = subItem.Value.EnumerateObject()
-                        .ToDictionary(prop => prop.Name, prop => prop.Value.ToString());
-
-                    itemData["name"] = subItem.Name;
-                    itemsDictionary[uniqueId] = itemData;
-                }
-                else
-                {
-                    Dictionary<string, Dictionary<string, string>> nestedItems = ExtractItems(subItem.Value);
-                    foreach (KeyValuePair<string, Dictionary<string, string>> nestedItem in nestedItems)
-                    {
-                        itemsDictionary[nestedItem.Key] = nestedItem.Value;
-                    }
-                }
-            }
-        }
-
-        return itemsDictionary;
     }
 }
